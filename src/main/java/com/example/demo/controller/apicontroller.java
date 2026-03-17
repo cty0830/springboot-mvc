@@ -3,17 +3,20 @@ package com.example.demo.controller;
 import java.util.IntSummaryStatistics;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collector;
 import java.util.stream.Collectors;
 
 import org.springframework.boot.context.properties.bind.DefaultValue;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.example.demo.model.bmi;
+import com.example.demo.model.Book;
 import com.example.demo.response.responseapi;
 
 @RestController //可以省去寫	@ResponseBody
@@ -167,4 +170,98 @@ public class apicontroller{
 		
 		return ResponseEntity.ok(responseapi.success("計算成功", data));
 	}
+	
+	/**
+	 * 8. 多筆參數轉 Map
+	 * name 書名(String), price 價格(Double), amount 數量(Integer), pub 出刊/停刊(Boolean)
+	 * 路徑: /json/book?name=Math&price=12.5&amount=10&pub=true
+	 * 路徑: /json/book?name=English&price=10.5&amount=20&pub=false
+	 * 網址: http://localhost:8080/api/json/book?name=Math&price=12.5&amount=10&pub=true
+	 * 網址: http://localhost:8080/api/json/book?name=English&price=10.5&amount=20&pub=false
+	 * 讓參數自動轉成 key/value 的 Map 集合
+	 * */
+	@GetMapping(value = "/json/book", produces = "application/json;charset = utf-8")
+	public ResponseEntity<responseapi<Object>> getbookinfo(@RequestParam Map<String, Object> bookMap){
+		System.out.printf("bookmap = %s%n", bookMap);
+		return ResponseEntity.ok(responseapi.success("成功", bookMap));
+	}
+	
+	/**
+	 * 9. 多筆參數轉 model
+	 * 路徑: /json/book2?name=Math&price=12.5&amount=10&pub=true
+	 * 網址: http://localhost:8080/api/json/book2?name=Math&price=12.5&amount=10&pub=true
+	 */
+	@GetMapping(value = "/json/book2", produces = "application/json;charset=utf-8")
+	public ResponseEntity<responseapi<Book>> getBookInfo2(Book book) {
+		book.setId(1); // 設定 id
+		System.out.printf("book = %s%n", book);
+		return ResponseEntity.ok(responseapi.success("成功", book));
+	}
+	
+	
+	/**
+	 * 10. 路徑參數
+	 * 早期設計風格
+	 * 路徑: /json/book?id=1 得到 id=1 的書
+	 * 路徑: /json/book?id=2 得到 id=2 的書
+	 * 
+	 * 現代設計風格(REST)
+	 * GET /books  查詢所有書籍
+	 * GET /book/1 查詢指定書籍
+	 * 
+	 * 路徑: /json/book/1 得到 id=1 的書
+	 * 路徑: /json/book/2 得到 id=2 的書
+	 * 網址: http://localhost:8080/api/json/book/1
+	 * 網址: http://localhost:8080/api/json/book/2
+	 * */
+	@GetMapping(value = "/json/book/{id}", produces = "application/json;charset = utf-8")
+	public ResponseEntity<responseapi<Book>> getbookbyid(@PathVariable Integer id){
+		//書庫
+		List<Book> books = List.of(
+				new Book(1, "小叮噹", 12.5, 20, true),
+				new Book(2, "老夫子", 10.5, 30, true),
+				new Book(3, "好小子", 9.5, 40, true),
+				new Book(4, "新樂園", 14.5, 50, false)
+				);
+		
+		//根據 id 搜尋書籍
+		Optional<Book> optbook = books.stream().filter(book -> book.getId().equals(id)).findFirst();
+		
+		//是否找到
+		if (optbook.isEmpty()) {
+			return ResponseEntity.badRequest().body(responseapi.error("查無此書"));
+		}
+		
+		Book book = optbook.get();
+		return ResponseEntity.ok(responseapi.success("查詢成功", book));
+	}
+	
+	/**
+	 * Lab
+	 * 書庫: 請參考上面的實作
+	 * 
+	 * 得到已出版(pub:true)的書籍
+	 * 網址: http://localhost:8080/api/json/book/pub/true
+	 * 
+	 * 得到未出版(pub:false)的書籍
+	 * 網址: http://localhost:8080/api/json/book/pub/false
+	 * */
+	@GetMapping(value = "/json/book/pub/{isPub}")
+	public ResponseEntity<responseapi<List<Book>>> queryBook(@PathVariable Boolean isPub) {
+		// 書庫
+		List<Book> books = List.of(
+				new Book(1, "小叮噹", 12.5, 20, true),
+				new Book(2, "老夫子", 10.5, 30, true),
+				new Book(3, "好小子", 9.5, 40, true),
+				new Book(4, "新樂園", 14.5, 50, false));
+		
+		// 過濾出刊/停刊
+		List<Book> queryBooks = books.stream().filter(book -> book.getPub().equals(isPub)).toList();
+		if(queryBooks.size() == 0) {
+			return ResponseEntity.badRequest().body(responseapi.error("查無" + (isPub?"出刊":"停刊") + "書籍資料"));
+		}
+		return ResponseEntity.ok(responseapi.success("查詢成功:" + (isPub?"出刊":"停刊"), queryBooks));
+	}
+	
+	
 }
